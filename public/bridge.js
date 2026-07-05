@@ -399,7 +399,7 @@ addEventListener("wheel", e => {
   if (e.target && e.target.tagName === "CANVAS") {
     e.preventDefault();
     const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 128 : e.deltaY;
-    wheelAcc -= dy / 100; // 노치(±120) ≈ 1.2유닛 ≈ 카트 14px (index.astro 터치 환산 상수와 연동)
+    wheelAcc -= dy / 200; // 노치(±120) ≈ 0.6유닛 ≈ 카트 7px (index.astro 터치 환산 상수와 연동)
   }
 }, { passive: false });
 

@@ -500,9 +500,9 @@ glass.addEventListener("touchmove", e => {
   if (tch.moved && dy !== 0) {
     const r = glass.getBoundingClientRect();
     // 콘텐츠가 손가락을 1:1로 따라오도록 환산
-    // (유리폭=128콘텐츠px, 카트 12px/유닛, 브릿지 100deltaY/유닛 → dy×128×100/12/유리폭)
+    // (유리폭=128콘텐츠px, 카트 12px/유닛, 브릿지 200deltaY/유닛 → dy×128×200/12/유리폭)
     glass.dispatchEvent(new WheelEvent("wheel", {
-      deltaY: dy * 1067 / r.width,
+      deltaY: dy * 2133 / r.width,
       clientX: t.clientX, clientY: t.clientY, bubbles: true, cancelable: true,
     }));
   }

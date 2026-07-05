@@ -335,7 +335,7 @@ end
 
 function golist()
  state="list" docv=ldoc
- s=0 win=0
+ s=0 stgt=0 win=0
  sel=mid(sel or 1,1,max(1,#entries))
  render_win(docv)
 end
@@ -365,7 +365,7 @@ function _init()
  for i=0,5 do poke(g+i,0) end
  poke(g+127,0)
  glyphs={} pend={} imgs={} imgy={} imgh={} imglist={}
- cooldown=5 qi=1 sel=1 s=0 win=0 mbp=0 boot_t=0
+ cooldown=5 qi=1 sel=1 s=0 stgt=0 win=0 mbp=0 boot_t=0
  state="boot"
  qreq(1,0,"idx")
 end
@@ -433,8 +433,9 @@ function upd_list()
  if hover then sel=hover end
  if btnp(2) then sel=max(1,sel-1) snap_sel() end
  if btnp(3) then sel=min(#entries,sel+1) snap_sel() end
- s-=wh*10
- s=mid(s,0,max(0,docv.h-128))
+ stgt-=wh*10
+ stgt=mid(stgt,0,max(0,docv.h-128))
+ smooth_s()
  ensure_win(docv)
  if (click and hover) or btnp(4) then
   openpost(sel)
@@ -446,13 +447,21 @@ function snap_sel()
  if e.y0-s<0 then s=e.y0-4 end
  if e.y1-s>124 then s=e.y1-124 end
  s=mid(s,0,max(0,docv.h-128))
+ stgt=s
+end
+
+-- 스크롤 스무딩: 목표(stgt)를 향해 미끄러진다 (휠 급발진 방지)
+function smooth_s()
+ s+=(stgt-s)*0.35
+ if abs(stgt-s)<0.3 then s=stgt end
 end
 
 function upd_post()
- s-=wh*12
- if btn(2) then s-=2 end
- if btn(3) then s+=2 end
- s=mid(s,0,max(0,docv.h-128))
+ stgt-=wh*12
+ if btn(2) then stgt-=2.5 end
+ if btn(3) then stgt+=2.5 end
+ stgt=mid(stgt,0,max(0,docv.h-128))
+ smooth_s()
  ensure_win(docv)
  backhov=mx<=11 and my<=9
  if btnp(5) or rclick or (click and backhov) then
@@ -466,7 +475,7 @@ function upd_swap()
  if anim.t==46 then sfx(1) end
  if anim.t>=64 and postready then
   state="post" docv=pdoc
-  s=0 win=0
+  s=0 stgt=0 win=0
   render_win(docv)
   start_imgs()
  end

@@ -27,4 +27,4 @@ if ! grep -q "bridge.js" blog.html; then
   perl -0pi -e 's{</body>}{<script src="../bridge.js"></script>\n</body>}' blog.html
   echo "bridge.js 주입 완료"
 fi
-echo "완료: 블로그 페이지 = web/player/blog.html (디버그 패널 = web/index.html)"
+echo "완료: public/player/blog.html 갱신 (사이트 빌드 시 dist로 복사됨)"
