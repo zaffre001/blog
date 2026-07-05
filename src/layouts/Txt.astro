@@ -18,6 +18,7 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 <title>{pageTitle}</title>
 <meta name="description" content={site.tagline} />
 <link rel="alternate" type="application/rss+xml" title={site.title} href="/rss.xml" />
+<link rel="alternate" type="application/rss+xml" title={`${site.title} — 새 댓글`} href="/comments.xml" />
 </head>
 <body>
 <header>
@@ -117,8 +118,19 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
   }
   .cmts-head { color: #ffff55; font-weight: 700; margin-bottom: 8px; }
   .cmt { border-top: 1px dashed #5555ff; padding: 8px 0 6px; }
+  .cmt-reply { padding-left: 18px; border-top-style: dotted; }
   .cmt-nick { color: #55ffff; font-size: 12px; margin-bottom: 2px; }
   .cmt-body { white-space: pre-wrap; line-height: 1.8; }
+  .cmt-rebtn {
+    font: inherit; font-size: 10px; color: #0000a8; background: #a8a8a8;
+    border: 0; padding: 1px 6px; cursor: pointer; box-shadow: 1px 1px 0 #000;
+  }
+  .cmt-rebtn:hover { background: #fff; }
+  .cmts-reto { color: #ffff55; font-size: 12px; margin: 8px 0 4px; }
+  .cmts-reto button {
+    font: inherit; font-size: 10px; color: #0000a8; background: #a8a8a8;
+    border: 0; padding: 1px 6px; cursor: pointer; box-shadow: 1px 1px 0 #000;
+  }
   .cmts-row { color: #55ffff; font-size: 13px; margin: 12px 0 4px; }
   .cmts input[name="nick"] {
     background: transparent; border: 0; border-bottom: 1px dashed #5555ff;

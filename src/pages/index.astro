@@ -13,6 +13,7 @@ import site from "../../content/site.json";
 <title>{site.title}</title>
 <meta name="description" content={site.tagline} />
 <link rel="alternate" type="application/rss+xml" title={site.title} href="/rss.xml" />
+<link rel="alternate" type="application/rss+xml" title={`${site.title} — 새 댓글`} href="/comments.xml" />
 </head>
 <body>
 
@@ -53,6 +54,7 @@ import site from "../../content/site.json";
     <div id="cmt-title">《 댓 글 쓰 기 》<span id="cmt-cursor">▌</span></div>
     <div id="cmt-sub">to. <span id="cmt-slug"></span></div>
     <label class="cmt-row">대화명│ <input id="cmt-nick" maxlength="12" placeholder="손님" autocomplete="nickname"></label>
+    <label class="cmt-row">답 글│ <select id="cmt-re"><option value="">(새 댓글)</option></select></label>
     <div class="cmt-row">내 용│</div>
     <textarea id="cmt-body" maxlength="500" rows="6" spellcheck="false"></textarea>
     <input id="cmt-web" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
@@ -268,6 +270,10 @@ import site from "../../content/site.json";
   #cmt-nick {
     background: transparent; border: 0; border-bottom: 1px dashed #5555ff;
     color: #fff; font: inherit; caret-color: #ffff55; outline: none; width: 11em;
+  }
+  #cmt-re {
+    background: #000060; border: 1px solid #5555ff; color: #fff;
+    font: inherit; font-size: 12px; outline: none; max-width: 16em;
   }
   #cmt-body {
     width: 100%; background: rgba(0, 0, 0, .28);
@@ -622,6 +628,18 @@ function openCmt(slug) {
   $("#cmt-msg").textContent = "";
   $("#cmt-modal").hidden = false;
   $("#cmt-body").focus();
+  // 답글 대상 목록 채우기 (1단 스레드 — 부모 댓글만)
+  const sel = $("#cmt-re");
+  sel.innerHTML = '<option value="">(새 댓글)</option>';
+  fetch("/api/comments/" + slug).then(r => r.json()).then(d => {
+    const tops = (d.comments ?? []).filter(c => !c.re).sort((a, b) => a.ts - b.ts);
+    tops.forEach((c, i) => {
+      const o = document.createElement("option");
+      o.value = c.id;
+      o.textContent = "└ " + (i + 1) + ". " + c.nick + ": " + c.body.slice(0, 14) + (c.body.length > 14 ? "…" : "");
+      sel.append(o);
+    });
+  }).catch(() => {});
 }
 function closeCmt() { $("#cmt-modal").hidden = true; }
 async function sendCmt() {
@@ -632,14 +650,23 @@ async function sendCmt() {
     const r = await fetch("/api/comments/" + cmtSlug, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nick: $("#cmt-nick").value, body, website: $("#cmt-web").value }),
+      body: JSON.stringify({
+        nick: $("#cmt-nick").value, body,
+        re: $("#cmt-re").value || undefined,
+        website: $("#cmt-web").value,
+      }),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || d.error) throw new Error(d.error || "전송 실패");
     $("#cmt-body").value = "";
     closeCmt();
-    // 카트에 "댓글 갱신됨" 신호 — 스크롤 유지한 채 다시 그린다
-    try { $("#tube").contentWindow.pico8_gpio[124] = 2; } catch (e) {}
+    // 카트에 "댓글 갱신됨" 신호 — 방금 목록을 넘겨(read-your-own-writes)
+    // 스크롤 유지한 채 다시 그린다
+    try {
+      const w = $("#tube").contentWindow;
+      w.__cmtsOverride = { slug: cmtSlug, at: Date.now(), comments: d.comments ?? [] };
+      w.pico8_gpio[124] = 2;
+    } catch (e) {}
   } catch (e) {
     $("#cmt-msg").textContent = e.message;
   } finally {

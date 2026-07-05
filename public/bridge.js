@@ -265,6 +265,14 @@ async function handlePost(arg) {
   try {
     cms = (await (await fetch(new URL("api/comments/" + p.slug, ROOT))).json()).comments ?? [];
   } catch (e) { log("댓글 로드 실패: " + e.message); }
+  // read-your-own-writes: 방금 모달로 등록한 댓글이 KV list() 지연으로 빠졌으면 병합
+  try {
+    const ov = window.__cmtsOverride;
+    if (ov && ov.slug === p.slug && Date.now() - ov.at < 120000) {
+      const seen = new Set(cms.map(c => c.id));
+      for (const c of ov.comments ?? []) if (c.id && !seen.has(c.id)) cms.push(c);
+    }
+  } catch (e) {}
 
   log("POST 전송: " + post.title + " (이미지 " + images.length + ", 댓글 " + cms.length + ")");
   return packMsg(w => {
@@ -284,18 +292,33 @@ async function handlePost(arg) {
         else { w.u16(0x7ffd); w.u8(t.img); w.u16(im.h); }
       } else emitText(t.line, t.col);
     }
-    // ── 댓글 섹션 ──
+    // ── 댓글 섹션 (1단 답글 스레드) ──
     const p2 = n => String(n).padStart(2, "0");
+    const when = ts => {
+      const d = new Date(ts);
+      return p2(d.getMonth() + 1) + "/" + p2(d.getDate()) + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
+    };
+    const tops = cms.filter(c => !c.re).sort((a, b) => a.ts - b.ts);
+    const reps = cms.filter(c => c.re).sort((a, b) => a.ts - b.ts);
+    for (const r of reps) if (!tops.some(t => t.id === r.re)) { delete r.re; tops.push(r); } // 부모 삭제된 답글은 승격
+    tops.sort((a, b) => a.ts - b.ts);
     w.u16(0x7ffe);
     emitText("─".repeat(15), 13);
     emitText("▶ 댓글 " + cms.length + "건", 12);
     if (!cms.length) emitText("아직 댓글이 없습니다", 5);
-    for (const c of cms.slice(-50)) {
-      const d = new Date(c.ts);
+    for (const c of tops.slice(-50)) {
       emitRun(String(c.nick), 11);
-      emitRun(" " + p2(d.getMonth() + 1) + "/" + p2(d.getDate()) + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()), 5);
+      emitRun(" " + when(c.ts), 5);
       w.u16(0x7ffe);
       for (const ln of String(c.body).split("\n")) emitText("> " + ln, 7);
+      for (const r of reps) {
+        if (r.re !== c.id) continue;
+        emitRun("└ ", 13);
+        emitRun(String(r.nick), 11);
+        emitRun(" " + when(r.ts), 5);
+        w.u16(0x7ffe);
+        for (const ln of String(r.body).split("\n")) emitText("  > " + ln, 6);
+      }
       w.u16(0x7ffe);
     }
     emitText("[+]로 댓글 남기기", 5);

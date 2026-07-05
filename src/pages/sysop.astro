@@ -1,0 +1,161 @@
+---
+// 시삽(SYSOP) 모드 — 댓글 관리. 정적 셸 + 클라이언트에서 ADMIN_TOKEN으로 DELETE 호출.
+import site from "../../content/site.json";
+---
+
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>시삽 모드 · {site.title}</title>
+<meta name="robots" content="noindex" />
+</head>
+<body>
+<div id="term">
+  <div id="t-title">《 시 삽 모 드 》<span id="t-cursor">▌</span></div>
+  <div id="t-sub">{site.title} 댓글 관리반</div>
+
+  <div class="t-row">
+    암호│ <input id="t-token" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN">
+    <button id="t-login" type="button">접속</button>
+    <span id="t-msg"></span>
+  </div>
+
+  <div id="t-list">암호 입력 후 접속하세요.</div>
+
+  <div id="t-foot">
+    <a href="/">← 브라운관으로</a> · <a href="/txt/">텍스트 모드</a> · <a href="/comments.xml">댓글 RSS</a>
+  </div>
+</div>
+
+<style is:global>
+  @font-face { font-family: "Galmuri11"; src: url("/fonts/Galmuri11.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Galmuri11"; src: url("/fonts/Galmuri11-Bold.woff2") format("woff2"); font-weight: 700; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh; background: #0000a8; color: #e8e8e8;
+    font-family: "Galmuri11", monospace; font-size: 14px;
+    display: flex; justify-content: center; padding: 24px 12px;
+  }
+  #term { width: min(640px, 96vw); }
+  #t-title { text-align: center; color: #ffff55; font-weight: 700; letter-spacing: 3px; font-size: 18px; }
+  #t-cursor { color: #fff; animation: cblink 1s steps(1) infinite; }
+  @keyframes cblink { 50% { opacity: 0; } }
+  #t-sub { text-align: center; color: #55ffff; font-size: 12px; margin: 4px 0 18px; }
+  .t-row { color: #55ffff; margin: 10px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #t-token {
+    background: transparent; border: 0; border-bottom: 1px dashed #5555ff;
+    color: #fff; font: inherit; caret-color: #ffff55; outline: none; width: 16em;
+  }
+  #t-login {
+    font: inherit; font-size: 13px; color: #0000a8; background: #a8a8a8;
+    border: 0; padding: 4px 12px; cursor: pointer; box-shadow: 2px 2px 0 #000;
+  }
+  #t-login:hover { background: #fff; }
+  #t-msg { color: #ff5555; font-size: 12px; }
+  #t-list { border: 4px double #55ffff; padding: 12px 14px; margin-top: 14px; min-height: 8em; }
+  .t-post { color: #ffff55; font-weight: 700; margin: 12px 0 4px; }
+  .t-post:first-child { margin-top: 0; }
+  .t-cmt { border-top: 1px dashed #5555ff; padding: 7px 0 6px; display: flex; gap: 10px; align-items: flex-start; }
+  .t-cmt.t-re { padding-left: 18px; }
+  .t-cmt-main { flex: 1; min-width: 0; }
+  .t-cmt-nick { color: #55ffff; font-size: 12px; }
+  .t-cmt-body { white-space: pre-wrap; line-height: 1.7; word-break: break-word; }
+  .t-del {
+    font: inherit; font-size: 12px; color: #fff; background: #a80000;
+    border: 0; padding: 2px 8px; cursor: pointer; box-shadow: 2px 2px 0 #000;
+    flex-shrink: 0;
+  }
+  .t-del:hover { background: #ff5555; }
+  #t-foot { margin-top: 18px; font-size: 12px; color: #5555ff; }
+  #t-foot a { color: #55ffff; }
+</style>
+
+<script is:inline>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const p2 = (n) => String(n).padStart(2, "0");
+  const tokenBox = $("#t-token");
+  tokenBox.value = localStorage.getItem("sysop_token") ?? "";
+
+  async function load() {
+    const list = $("#t-list");
+    list.textContent = "불러오는 중…";
+    try {
+      const idx = await (await fetch("/content/index.json")).json();
+      list.innerHTML = "";
+      let total = 0;
+      for (const p of idx.posts) {
+        const d = await (await fetch("/api/comments/" + p.slug)).json();
+        const cs = d.comments ?? [];
+        if (!cs.length) continue;
+        total += cs.length;
+        const h = document.createElement("div");
+        h.className = "t-post";
+        h.textContent = "■ " + p.title + " (" + cs.length + ")";
+        list.append(h);
+        const tops = cs.filter((c) => !c.re).sort((a, b) => a.ts - b.ts);
+        const reps = cs.filter((c) => c.re).sort((a, b) => a.ts - b.ts);
+        const ordered = [];
+        for (const t of tops) {
+          ordered.push(t);
+          for (const r of reps) if (r.re === t.id) ordered.push(r);
+        }
+        for (const r of reps) if (!tops.some((t) => t.id === r.re)) ordered.push(r);
+        for (const c of ordered) {
+          const row = document.createElement("div");
+          row.className = "t-cmt" + (c.re ? " t-re" : "");
+          const main = document.createElement("div");
+          main.className = "t-cmt-main";
+          const nick = document.createElement("div");
+          nick.className = "t-cmt-nick";
+          const dd = new Date(c.ts);
+          nick.textContent = (c.re ? "└ " : "") + c.nick + " · " +
+            p2(dd.getMonth() + 1) + "/" + p2(dd.getDate()) + " " + p2(dd.getHours()) + ":" + p2(dd.getMinutes());
+          const body = document.createElement("div");
+          body.className = "t-cmt-body";
+          body.textContent = c.body;
+          main.append(nick, body);
+          const del = document.createElement("button");
+          del.className = "t-del";
+          del.type = "button";
+          del.textContent = "삭제";
+          del.addEventListener("click", async () => {
+            if (!confirm("삭제할까요?\n" + c.nick + ": " + c.body.slice(0, 40))) return;
+            $("#t-msg").textContent = "";
+            try {
+              const r = await fetch("/api/comments/" + p.slug, {
+                method: "DELETE",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": "Bearer " + tokenBox.value.trim(),
+                },
+                body: JSON.stringify({ id: c.id }),
+              });
+              const res = await r.json().catch(() => ({}));
+              if (!r.ok || res.error) throw new Error(res.error || "삭제 실패");
+              row.remove();
+            } catch (e) {
+              $("#t-msg").textContent = e.message;
+            }
+          });
+          row.append(main, del);
+          list.append(row);
+        }
+      }
+      if (!total) list.textContent = "댓글이 없습니다.";
+    } catch (e) {
+      list.textContent = "불러오기 실패: " + e.message;
+    }
+  }
+
+  $("#t-login").addEventListener("click", () => {
+    localStorage.setItem("sysop_token", tokenBox.value.trim());
+    load();
+  });
+  if (tokenBox.value) load();
+})();
+</script>
+</body>
+</html>

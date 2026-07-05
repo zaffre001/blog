@@ -24,6 +24,7 @@ const { Content } = await render(post);
     <div id="cmts-list">불러오는 중…</div>
     <form id="cmts-form">
       <div class="cmts-row">대화명│ <input name="nick" maxlength="12" placeholder="손님" autocomplete="nickname"></div>
+      <div class="cmts-reto" id="cmts-reto" hidden>└ <b id="cmts-reto-nick"></b>님에게 답글 중 <button type="button" id="cmts-reto-x">취소</button></div>
       <textarea name="body" maxlength="500" rows="4" required placeholder="댓글 입력…" spellcheck="false"></textarea>
       <input name="website" tabindex="-1" autocomplete="off" class="cmts-hp" aria-hidden="true">
       <div class="cmts-foot">
@@ -37,31 +38,69 @@ const { Content } = await render(post);
     (() => {
       const $ = (s) => document.querySelector(s);
       const p2 = (n) => String(n).padStart(2, "0");
+      const when = (ts) => {
+        const d = new Date(ts);
+        return p2(d.getMonth() + 1) + "/" + p2(d.getDate()) + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
+      };
+      let reTarget = null; // {id, nick}
+
+      function setRe(t) {
+        reTarget = t;
+        $("#cmts-reto").hidden = !t;
+        if (t) { $("#cmts-reto-nick").textContent = t.nick; $("#cmts-form").body.focus(); }
+      }
+
+      function render(cs) {
+        const list = $("#cmts-list");
+        list.innerHTML = "";
+        $("#cmts-n").textContent = cs.length;
+        if (!cs.length) { list.textContent = "아직 댓글이 없습니다"; return; }
+        const tops = cs.filter((c) => !c.re).sort((a, b) => a.ts - b.ts);
+        const reps = cs.filter((c) => c.re).sort((a, b) => a.ts - b.ts);
+        for (const r of reps) if (!tops.some((t) => t.id === r.re)) { delete r.re; tops.push(r); }
+        tops.sort((a, b) => a.ts - b.ts);
+        const mk = (c, isReply) => {
+          const item = document.createElement("div");
+          item.className = "cmt" + (isReply ? " cmt-reply" : "");
+          item.id = "c-" + c.id;
+          const head = document.createElement("div");
+          head.className = "cmt-nick";
+          head.textContent = (isReply ? "└ " : "") + c.nick + " · " + when(c.ts);
+          if (!isReply) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "cmt-rebtn";
+            btn.textContent = "답글";
+            btn.addEventListener("click", () => setRe({ id: c.id, nick: c.nick }));
+            head.append(" ", btn);
+          }
+          const body = document.createElement("div");
+          body.className = "cmt-body";
+          body.textContent = c.body;
+          item.append(head, body);
+          return item;
+        };
+        for (const c of tops) {
+          list.append(mk(c, false));
+          for (const r of reps) if (r.re === c.id) list.append(mk(r, true));
+        }
+      }
+
       async function load() {
         try {
           const d = await (await fetch("/api/comments/" + slug)).json();
-          const list = $("#cmts-list");
-          list.innerHTML = "";
-          const cs = d.comments ?? [];
-          $("#cmts-n").textContent = cs.length;
-          if (!cs.length) { list.textContent = "아직 댓글이 없습니다"; return; }
-          for (const c of cs) {
-            const item = document.createElement("div");
-            item.className = "cmt";
-            const head = document.createElement("div");
-            head.className = "cmt-nick";
-            const dd = new Date(c.ts);
-            head.textContent = c.nick + " · " + p2(dd.getMonth() + 1) + "/" + p2(dd.getDate()) + " " + p2(dd.getHours()) + ":" + p2(dd.getMinutes());
-            const body = document.createElement("div");
-            body.className = "cmt-body";
-            body.textContent = c.body;
-            item.append(head, body);
-            list.append(item);
+          render(d.comments ?? []);
+          if (location.hash.startsWith("#c-")) {
+            const anchor = decodeURIComponent(location.hash.slice(1)).replace(/\/$/, "");
+            const el = document.getElementById(anchor);
+            if (el) { el.scrollIntoView({ block: "center" }); el.style.background = "rgba(255,255,85,.12)"; }
           }
         } catch (e) {
           $("#cmts-list").textContent = "댓글을 불러오지 못했습니다";
         }
       }
+
+      $("#cmts-reto-x").addEventListener("click", () => setRe(null));
       $("#cmts-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const f = e.target;
@@ -70,12 +109,18 @@ const { Content } = await render(post);
           const r = await fetch("/api/comments/" + slug, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nick: f.nick.value, body: f.body.value, website: f.website.value }),
+            body: JSON.stringify({
+              nick: f.nick.value, body: f.body.value,
+              re: reTarget ? reTarget.id : undefined,
+              website: f.website.value,
+            }),
           });
           const d = await r.json().catch(() => ({}));
           if (!r.ok || d.error) throw new Error(d.error || "등록 실패");
           f.body.value = "";
-          load();
+          setRe(null);
+          // read-your-own-writes: 등록 응답의 병합 목록으로 즉시 갱신
+          if (d.comments) render(d.comments); else load();
         } catch (err) {
           $("#cmts-msg").textContent = err.message;
         }

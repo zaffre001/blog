@@ -80,12 +80,17 @@ npm run dev            # http://localhost:4321
 
 ## 댓글 (PC통신 감성)
 
-- 저장: Cloudflare KV (binding `COMMENTS` — id 생략 시 배포 자동 프로비저닝,
-  실패하면 대시보드에서 네임스페이스 만들고 `wrangler.jsonc`에 id 기입)
-- API: `GET/POST /api/comments/<슬러그>` — 익명 "손님", 허니팟 + 500자 + IP당 60초
+- 저장: Cloudflare KV (binding `COMMENTS` — id 생략 시 배포 자동 프로비저닝 확인됨)
+- API: `GET/POST/DELETE /api/comments/<슬러그>` — 익명 "손님", 허니팟 + 500자 + IP당 60초.
+  POST 응답에 방금 쓴 댓글이 병합된 목록이 담겨 온다 (KV list()의 최종 일관성
+  지연을 우회하는 read-your-own-writes — 본인 댓글은 즉시 보인다)
+- **대댓글**: 1단 답글(`re`) — 브라운관·텍스트 모드 모두 `└` 들여쓰기,
+  모달에는 "답 글│" 선택, 텍스트 모드엔 [답글] 버튼. 부모가 삭제되면 답글은 승격
 - 브라운관에는 글 뒤에 `▶ 댓글 N건`으로 이어 붙고(같은 글리프 파이프라인),
   등록은 gpio[124] 신호로 여닫는 남색 터미널 모달. 텍스트 모드엔 이중 테두리 박스
-- 삭제는 아직 UI 없음 — CF 대시보드 → KV → `c:<슬러그>:...` 키 삭제
+- **시삽 모드** `/sysop`: 댓글 삭제 관리 — 암호는 환경변수 `ADMIN_TOKEN`
+  (로컬 .env에 생성돼 있음 · CF Workers 환경변수에도 같은 값 설정 필요)
+- **새 댓글 RSS** `/comments.xml`: 전역 최신 50개, 5분 캐시 (글 피드는 `/rss.xml`)
 
 ## GPIO 프로토콜 (요약)
 
