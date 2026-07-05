@@ -6,7 +6,7 @@ set -euo pipefail
 
 PICO8="${PICO8:-/Applications/PICO-8.app/Contents/MacOS/pico8}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/web/player"
+OUT="$ROOT/public/player"
 
 if [[ ! -x "$PICO8" ]]; then
   echo "PICO-8 실행 파일을 찾을 수 없습니다: $PICO8"

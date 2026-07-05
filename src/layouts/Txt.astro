@@ -1,0 +1,115 @@
+---
+// 텍스트 모드 공용 레이아웃 — CRT 없이 편하게 읽는 진짜 정적 페이지 (SEO·접근성 담당)
+import site from "../../content/site.json";
+
+interface Props {
+  title?: string;
+  picoHref: string; // "📺 PICO-8 모드" 버튼이 갈 곳
+}
+const { title, picoHref } = Astro.props;
+const pageTitle = title ? `${title} · ${site.title}` : site.title;
+---
+
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{pageTitle}</title>
+<meta name="description" content={site.tagline} />
+<link rel="alternate" type="application/rss+xml" title={site.title} href="/rss.xml" />
+</head>
+<body>
+<header>
+  <div>
+    <h1><a href="/txt/">{site.title}</a></h1>
+    <div class="tag">{site.tagline}</div>
+  </div>
+  <a class="pbtn" href={picoHref}>📺 PICO-8 모드</a>
+</header>
+
+<main class="card">
+  <slot />
+</main>
+
+<footer>
+  © 2026 za66re ·
+  <a href="/rss.xml">RSS</a> ·
+  글꼴 <a href="https://github.com/quiple/galmuri">Galmuri</a> ·
+  엔진 <a href="https://www.lexaloffle.com/pico-8.php">PICO-8</a>
+</footer>
+
+<style is:global>
+  @font-face { font-family: "Galmuri7";  src: url("/fonts/Galmuri7.woff2") format("woff2"); }
+  @font-face { font-family: "Galmuri11"; src: url("/fonts/Galmuri11.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Galmuri11"; src: url("/fonts/Galmuri11-Bold.woff2") format("woff2"); font-weight: 700; }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    background: radial-gradient(1100px 700px at 50% -12%, #1b2244 0%, #0b0e1e 55%, #06070f 100%);
+    font-family: "Galmuri11", monospace;
+    color: #c2c3c7;
+    padding: 36px 14px 24px;
+  }
+  header {
+    width: min(620px, 94vw);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; margin-bottom: 14px;
+  }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header h1 a { color: #ffec27; text-decoration: none; }
+  header .tag { font-size: 12px; color: #7a819c; margin-top: 3px; }
+
+  .pbtn {
+    font-family: inherit; font-size: 12px; font-weight: 700; color: #5b4c33;
+    white-space: nowrap; text-decoration: none;
+    background: linear-gradient(#f6eeda, #dccfaf);
+    border: 1px solid #a3906c; border-radius: 7px;
+    padding: 7px 12px 6px; cursor: pointer;
+    box-shadow: 0 3px 0 #a3906c, inset 0 1px 0 rgba(255,255,255,.8);
+  }
+  .pbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #a3906c; }
+
+  .card {
+    width: min(620px, 94vw);
+    background: #10142a;
+    border: 1px solid #232a4d; border-radius: 12px;
+    padding: 24px 22px; line-height: 1.95; font-size: 15px;
+  }
+  .card h1 { color: #ffec27; font-size: 18px; margin: 20px 0 6px; }
+  .card h2 { color: #29adff; font-size: 16px; margin: 18px 0 6px; }
+  .card h3 { color: #29adff; font-size: 15px; margin: 16px 0 4px; }
+  .card p { margin: 10px 0; }
+  .card blockquote {
+    border-left: 3px solid #5f574f; padding: 2px 0 2px 12px;
+    color: #9aa0b5; margin: 12px 0;
+  }
+  .card img { max-width: 100%; border-radius: 8px; display: block; margin: 14px auto; }
+  .card a { color: #29adff; }
+  .card code {
+    font-family: "Galmuri7", monospace; font-size: 14px;
+    background: #1a2040; padding: 1px 5px; border-radius: 4px;
+  }
+  .card pre { background: #0a0d1e; border: 1px solid #232a4d; border-radius: 8px; padding: 12px; overflow-x: auto; margin: 12px 0; }
+  .card pre code { background: none; padding: 0; }
+  .card hr { border: 0; border-top: 1px dashed #2a3157; margin: 14px 0; }
+
+  .post-title { color: #fff1e8; font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+  .post-date { color: #7a819c; font-size: 12px; }
+  .rd-item {
+    display: block; padding: 13px 8px;
+    border-bottom: 1px dashed #2a3157; color: inherit; text-decoration: none;
+  }
+  .rd-item:hover b { color: #ffec27; }
+  .rd-item b { color: #fff1e8; font-size: 16px; }
+  .rd-item small { color: #7a819c; display: block; margin-top: 2px; }
+  .rd-back { display: inline-block; margin-bottom: 12px; color: #29adff; text-decoration: none; }
+  .rd-back:hover { text-decoration: underline; }
+
+  footer { margin-top: 26px; font-size: 11px; color: #4a5470; }
+  footer a { color: #6f7a9e; }
+</style>
+</body>
+</html>

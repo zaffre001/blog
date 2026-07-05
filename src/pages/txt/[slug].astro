@@ -1,0 +1,21 @@
+---
+import Txt from "../../layouts/Txt.astro";
+import { getCollection, render } from "astro:content";
+import { fmtDate } from "../../lib/cart.js";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("posts");
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Txt title={post.data.title} picoHref={`/#${post.id}`}>
+  <a class="rd-back" href="/txt/">← 목록</a>
+  <div class="post-title">{post.data.title}</div>
+  <div class="post-date">{fmtDate(post.data.date)}</div>
+  <hr />
+  <Content />
+</Txt>

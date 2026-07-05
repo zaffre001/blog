@@ -1,0 +1,18 @@
+---
+import Txt from "../../layouts/Txt.astro";
+import { getCollection } from "astro:content";
+import { fmtDate } from "../../lib/cart.js";
+
+const posts = (await getCollection("posts")).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime(),
+);
+---
+
+<Txt picoHref="/">
+  {posts.map((p) => (
+    <a class="rd-item" href={`/txt/${p.id}/`}>
+      <b>{p.data.title}</b>
+      <small>{fmtDate(p.data.date)}</small>
+    </a>
+  ))}
+</Txt>

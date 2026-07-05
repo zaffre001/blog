@@ -507,7 +507,7 @@ end
 
 function draw_boot()
  cls(1)
- print("pico-blog",4,40,10)
+ print("za66re",4,40,10)
  local dots=sub("...",1,boot_t\20%4)
  print("connecting blog://"..dots,4,52,7)
  if rx then print(#rx.buf.." bytes",4,60,13) end
@@ -567,7 +567,7 @@ end
 function draw_console()
  rectfill(20,96,107,127,5)
  rectfill(26,92,101,97,0)
- print("pico-blog",46,118,6)
+ print("za66re",52,118,6)
 end
 
 function draw_swap()
