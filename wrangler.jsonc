@@ -3,7 +3,7 @@
   // 빌드하면 이 설정을 상속한 완성본이 dist/server/wrangler.json으로 생성되고,
   // `npx wrangler deploy`가 그걸 집어 배포한다.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "za66re-blog",
+  "name": "blog",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2025-04-01",
   // Keystatic API 라우트(GitHub OAuth·커밋 프록시)가 workerd에서 돌기 위해 필요
