@@ -2,7 +2,6 @@
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import mdx from "@astrojs/mdx";
-import keystatic from "@keystatic/astro";
 import cloudflare from "@astrojs/cloudflare";
 
 // 사이트는 전부 정적으로 프리렌더되고, Keystatic 관리화면(/keystatic, /api/keystatic)만
@@ -16,13 +15,12 @@ const isBuild = process.argv.includes("build");
 export default defineConfig({
   // TODO: Workers 도메인 확정 후 실제 주소로 교체 (RSS/절대링크에 쓰임)
   site: "https://za66re-blog.workers.dev",
-  integrations: [react(), mdx(), keystatic()],
+  // Keystatic 라우트는 직접 정의(src/pages/keystatic, src/pages/api/keystatic) —
+  // @keystatic/astro 통합의 주입 라우트가 Astro 6 + CF에서 깨져서 쓰지 않는다.
+  integrations: [react(), mdx()],
   adapter: isBuild ? cloudflare() : undefined,
   vite: {
-    // virtual:keystatic-config는 vite 플러그인이 런타임에 해석하는 가상 모듈이라
-    // esbuild 프리번들에서는 "외부"로 남겨둬야 한다. 패키지 전체를 제외하면
-    // CJS 의존성(lodash 등)의 ESM 변환이 빠져 다른 오류가 나므로 이 id만 제외.
-    optimizeDeps: { exclude: ["virtual:keystatic-config"] },
-    ssr: { optimizeDeps: { exclude: ["virtual:keystatic-config"] } },
+    // cloudflare:workers는 workerd 전용 가상 모듈 — 번들에서 외부 처리
+    ssr: { external: ["cloudflare:workers"] },
   },
 });

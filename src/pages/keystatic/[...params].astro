@@ -1,0 +1,18 @@
+---
+// Keystatic 관리화면 — @keystatic/astro의 주입 라우트 대신 직접 정의.
+// (주입 라우트는 Astro 6에서 제거된 Astro.locals.runtime.env를 써서 workerd에서 500)
+import { Keystatic } from "../../keystatic.page";
+export const prerender = false;
+---
+
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Keystatic · za66re</title>
+</head>
+<body>
+<Keystatic client:only="react" />
+</body>
+</html>

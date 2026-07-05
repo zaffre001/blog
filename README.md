@@ -102,3 +102,8 @@ npm run dev            # http://localhost:4321
 - `virtual:keystatic-config`는 esbuild 프리번들에서 제외 필요 (astro.config의 optimizeDeps 참고)
 - 루트에 Pages식 `wrangler.toml`(`pages_build_output_dir`) 두면 어댑터 프리렌더와 충돌 —
   Workers식 `wrangler.jsonc`(main=어댑터 엔트리포인트)를 쓸 것
+- `@keystatic/astro`의 주입 API 라우트는 Astro 6에서 제거된 `Astro.locals.runtime.env`를
+  읽다가 **workerd에서만 500**을 낸다 (빌드는 통과, 로컬 dev도 정상이라 배포에서만 발견됨) →
+  통합을 빼고 `src/pages/keystatic/`·`src/pages/api/keystatic/`에 수동 라우트 정의,
+  env는 `cloudflare:workers` → `import.meta.env` → `process.env` 3단 폴백으로 주입.
+  디버깅은 `.env`를 `.dev.vars`로 복사 후 `npx wrangler dev`로 프로덕션 워커를 로컬 재현
