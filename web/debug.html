@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pico-blog 디버그 패널</title>
+<style>
+  @font-face { font-family: "Galmuri7";  src: url("fonts/Galmuri7.woff2") format("woff2"); }
+  @font-face { font-family: "Galmuri11"; src: url("fonts/Galmuri11.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Galmuri11"; src: url("fonts/Galmuri11-Bold.woff2") format("woff2"); font-weight: 700; }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1d2b53; color: #c2c3c7;
+    font-family: "Galmuri11", monospace;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 24px 12px;
+  }
+  h1 { color: #ffec27; font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+  nav { margin-bottom: 18px; font-size: 14px; }
+  nav a { color: #00e436; }
+  #nocart {
+    display: none; max-width: 640px; background: #000; border: 2px solid #ff004d;
+    padding: 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.7;
+  }
+  #nocart b { color: #ff77a8; }
+  #nocart code { color: #00e436; }
+  #debug { max-width: 640px; width: 100%; }
+  #debug h2 { font-size: 14px; color: #29adff; margin: 12px 0 4px; }
+  #debug canvas { background: #000; border: 1px solid #5f574f; image-rendering: pixelated; display: block; }
+  #bridge-log {
+    width: 100%; height: 120px; overflow-y: auto; background: #000; color: #00e436;
+    font-family: "Galmuri7", monospace; font-size: 12px; padding: 6px;
+    border: 1px solid #5f574f; white-space: pre-wrap;
+  }
+  footer { margin-top: 20px; font-size: 12px; color: #5f574f; }
+  footer a { color: #83769c; }
+</style>
+</head>
+<body>
+<h1>pico-blog 디버그 패널</h1>
+<nav><a href="index.html">← 블로그로 (CRT)</a> · <a href="player/blog.html">플레이어 단독</a></nav>
+
+<div id="nocart">
+  <b>카트가 아직 없습니다.</b> 익스포트하면 <code>web/player/blog.html</code>이 생깁니다:<br>
+  <code>PICO8=/path/to/pico8 tools/export.sh</code> (익스포트 + 브릿지 주입까지 자동)<br><br>
+  카트 없이도 아래에서 글리프·디더링 파이프라인은 확인할 수 있습니다.
+</div>
+
+<div id="debug">
+  <h2>bridge log</h2>
+  <div id="bridge-log"></div>
+  <h2>글리프 래스터라이저 (Galmuri7 → 1bpp, 카트가 받는 그대로)</h2>
+  <canvas id="dbg-glyph" width="256" height="30"></canvas>
+  <h2>제목 폰트 (Galmuri11 Bold 12px)</h2>
+  <canvas id="dbg-title" width="256" height="40"></canvas>
+  <h2>이미지 디더링 (CDN 원본 → PICO-8 16색 Floyd–Steinberg)</h2>
+  <canvas id="dbg-img" width="128" height="96"></canvas>
+</div>
+
+<footer>
+  글꼴: <a href="https://github.com/quiple/galmuri">Galmuri</a> (SIL OFL 1.1) ·
+  엔진: <a href="https://www.lexaloffle.com/pico-8.php">PICO-8</a>
+</footer>
+
+<script src="bridge.js"></script>
+<script>
+(async () => {
+  try {
+    const r = await fetch("player/blog.html", { method: "HEAD" });
+    if (!r.ok) throw 0;
+  } catch (e) {
+    document.getElementById("nocart").style.display = "block";
+  }
+
+  const B = window.__bridge;
+  await B.ready;
+
+  paintGlyphs("dbg-glyph", "안녕하세요, 갈무리7 픽셀 한글! abc 123", B.FONTS.body, 3);
+  paintGlyphs("dbg-title", "제목은 갈무리11", B.FONTS.title, 3);
+
+  try {
+    const idx = await (await fetch("../content/index.json")).json();
+    const post = await (await fetch("../content/posts/" + idx.posts[0].slug + ".json")).json();
+    const m = post.body.match(/!\[[^\]]*\]\(([^)\s]+)\)/);
+    if (m) {
+      const el = await B.loadImage(m[1]);
+      let w = 128, h = Math.round(el.naturalHeight * 128 / el.naturalWidth);
+      if (h > 224) { h = 224; w = Math.round(el.naturalWidth * 224 / el.naturalHeight); }
+      const bytes = B.dither(el, w, h);
+      paintDither("dbg-img", bytes, h, B.PAL);
+      B.log("디더링 자체 테스트 OK: " + m[1]);
+    }
+  } catch (e) { B.log("디더링 자체 테스트 실패: " + e.message); }
+
+  function paintGlyphs(id, text, font, scale) {
+    const cv = document.getElementById(id);
+    const glyphs = Array.from(text).map(ch => B.rasterize(ch, font));
+    const totalW = glyphs.reduce((a, g) => a + g.w, 0);
+    cv.width = totalW * scale; cv.height = (font.h + 2) * scale;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#1d2b53"; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = "#fff1e8";
+    let x = 0;
+    for (const g of glyphs) {
+      const bw = Math.ceil(g.w / 8);
+      for (let y = 0; y < g.h; y++)
+        for (let px = 0; px < g.w; px++)
+          if (g.bits[y * bw + (px >> 3)] & (128 >> (px & 7)))
+            ctx.fillRect((x + px) * scale, (y + 1) * scale, scale, scale);
+      x += g.w;
+    }
+  }
+
+  function paintDither(id, bytes, h, PAL) {
+    const cv = document.getElementById(id);
+    cv.width = 128; cv.height = h;
+    cv.style.width = "256px";
+    cv.style.height = (h * 2) + "px";
+    const ctx = cv.getContext("2d");
+    const img = ctx.createImageData(128, h);
+    for (let i = 0; i < 128 * h; i++) {
+      const b = bytes[i >> 1];
+      const c = PAL[(i & 1) ? (b >> 4) : (b & 15)];
+      img.data[i * 4] = c[0]; img.data[i * 4 + 1] = c[1]; img.data[i * 4 + 2] = c[2]; img.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+})();
+</script>
+</body>
+</html>

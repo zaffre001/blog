@@ -23,7 +23,7 @@ cd "$OUT"
 # (공식 템플릿의 pico8_buttons/pico8_mouse 입력 글루를 그대로 쓰기 위해
 #  우리 쉘에 플레이어를 끼우지 않고, 플레이어에 우리 스크립트를 끼운다)
 if ! grep -q "bridge.js" blog.html; then
-  perl -0pi -e 's{</head>}{<style>canvas{cursor:none}</style>\n</head>}' blog.html
+  perl -0pi -e 's{</head>}{<style>canvas\{cursor:none\}.p8_menu_button\{display:none!important\}</style>\n</head>}' blog.html
   perl -0pi -e 's{</body>}{<script src="../bridge.js"></script>\n</body>}' blog.html
   echo "bridge.js 주입 완료"
 fi
