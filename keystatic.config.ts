@@ -2,16 +2,16 @@ import { config, fields, collection, singleton } from "@keystatic/core";
 
 // 개발 중엔 로컬 파일에 바로 쓰고(localhost/keystatic),
 // 배포된 사이트의 /keystatic은 GitHub App을 통해 repo에 커밋한다.
-const isDev = process.env.NODE_ENV === "development";
+// PUBLIC_KEYSTATIC_STORAGE=github 로 dev를 띄우면 로컬에서도 GitHub 모드
+// (최초 1회 GitHub App 생성 마법사를 띄울 때 사용).
+// 주의: 이 파일은 관리화면(브라우저)에서도 실행되므로 process.env 금지 — import.meta.env만.
+const useGithub =
+  !import.meta.env.DEV || import.meta.env.PUBLIC_KEYSTATIC_STORAGE === "github";
 
 export default config({
-  storage: isDev
-    ? { kind: "local" }
-    : {
-        kind: "github",
-        // TODO: GitHub repo 만들면 owner/name 확인 (기본: zaffre001/blog)
-        repo: "zaffre001/blog",
-      },
+  storage: useGithub
+    ? { kind: "github", repo: "zaffre001/blog" }
+    : { kind: "local" },
   ui: {
     brand: { name: "za66re" },
   },
