@@ -8,7 +8,8 @@ import site from "../../content/site.json";
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- 앱형 화면: 사파리 더블탭/핀치 확대 차단 (텍스트 모드 /txt/는 확대 허용 유지) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>{site.title}</title>
 <meta name="description" content={site.tagline} />
 <link rel="alternate" type="application/rss+xml" title={site.title} href="/rss.xml" />
@@ -69,6 +70,9 @@ import site from "../../content/site.json";
     font-family: "Galmuri11", monospace;
     color: #c2c3c7;
     padding: 40px 12px 24px;
+    touch-action: manipulation;            /* 더블탭 확대 차단 */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;           /* 당겨서 새로고침 방지 */
   }
 
   /* ── CRT 모니터 ─────────────────────────────── */
@@ -109,6 +113,7 @@ import site from "../../content/site.json";
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     display: none; cursor: none;
+    touch-action: none; /* 유리 위 터치는 전부 우리가 처리 (스크롤·확대 제스처 차단) */
   }
   #screen.warp #glass { display: block; }
   #screen.warp #tube { opacity: 0; }
@@ -463,11 +468,63 @@ glass.addEventListener("wheel", e => {
   const c = innerCanvas();
   if (!c) return;
   const r = c.getBoundingClientRect();
+  // deltaMode 정규화(줄/페이지 → px) 후 브릿지에 전달
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 128 : e.deltaY;
   c.dispatchEvent(new WheelEvent("wheel", {
-    deltaY: e.deltaY, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+    deltaY: dy, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
     bubbles: true, cancelable: true,
   }));
 }, { passive: false });
+
+// ── 터치: 탭=클릭 · 드래그=스크롤(손가락 1:1 추적) · 길게 누르기=뒤로 ──
+// 유리에는 마우스 리스너만 있으므로 터치를 마우스/휠 이벤트로 번역해 자신에게 쏜다.
+// preventDefault로 브라우저의 마우스 에뮬레이션·기본 제스처(확대/스크롤)를 차단.
+let tch = null;
+const mev = (type, x, y, button, buttons) =>
+  glass.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, button, buttons, bubbles: true, cancelable: true }));
+
+glass.addEventListener("touchstart", e => {
+  e.preventDefault();
+  if (e.touches.length > 1) { tch = null; return; } // 멀티터치(핀치)는 무시
+  const t = e.touches[0];
+  tch = { x: t.clientX, y: t.clientY, py: t.clientY, t0: performance.now(), moved: false };
+}, { passive: false });
+
+glass.addEventListener("touchmove", e => {
+  e.preventDefault();
+  if (!tch) return;
+  const t = e.touches[0];
+  if (Math.abs(t.clientX - tch.x) > 8 || Math.abs(t.clientY - tch.y) > 8) tch.moved = true;
+  const dy = tch.py - t.clientY;
+  tch.py = t.clientY;
+  if (tch.moved && dy !== 0) {
+    const r = glass.getBoundingClientRect();
+    // 콘텐츠가 손가락을 1:1로 따라오도록 환산
+    // (유리폭=128콘텐츠px, 카트 12px/유닛, 브릿지 100deltaY/유닛 → dy×128×100/12/유리폭)
+    glass.dispatchEvent(new WheelEvent("wheel", {
+      deltaY: dy * 1067 / r.width,
+      clientX: t.clientX, clientY: t.clientY, bubbles: true, cancelable: true,
+    }));
+  }
+}, { passive: false });
+
+glass.addEventListener("touchend", e => {
+  e.preventDefault();
+  if (!tch) return;
+  const { x, y, moved, t0 } = tch;
+  tch = null;
+  if (moved) return; // 드래그였음 — 클릭 아님
+  const long = performance.now() - t0 >= 500; // 길게 누르기 = 우클릭(뒤로)
+  const button = long ? 2 : 0, buttons = long ? 2 : 1;
+  mev("mousemove", x, y, 0, 0);
+  mev("mousedown", x, y, button, buttons);
+  setTimeout(() => mev("mouseup", x, y, button, 0), 80); // 카트가 프레임에서 읽도록 1프레임+ 유지
+}, { passive: false });
+
+glass.addEventListener("touchcancel", () => { tch = null; });
+
+// 사파리 핀치 줌 차단 (gesture 이벤트는 사파리 전용)
+addEventListener("gesturestart", e => e.preventDefault());
 
 // ── 진입/이동 ──────────────────────────────────────
 function goPico(slug, auto) {

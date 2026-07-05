@@ -330,10 +330,11 @@ function watch() {
 function pump() {
   watch();
   // 휠 델타를 gpio[127]로 전달 (부호 있는 바이트, 카트가 읽고 0으로 지움)
+  // 정수부만 보내고 소수점은 이월 — 작은 제스처도 누적되면 반영된다
   if (wheelAcc !== 0 && gpio[127] === 0) {
-    const v = Math.max(-120, Math.min(120, Math.round(wheelAcc)));
-    if (v !== 0) gpio[127] = v & 0xff;
-    wheelAcc = 0;
+    const v = Math.max(-120, Math.min(120, Math.trunc(wheelAcc)));
+    if (v !== 0) { gpio[127] = v & 0xff; wheelAcc -= v; }
+    else if (Math.abs(wheelAcc) < 0.01) wheelAcc = 0;
   }
   if (tx) {
     if (gpio[2] !== tx.cur) {
@@ -391,11 +392,14 @@ setInterval(pump, 8);
 })();
 
 // 캔버스 위 휠: 페이지 스크롤 막고 카트로 전달 (위로 굴리면 +)
+// 이벤트 "개수"가 아니라 deltaY 크기 기반 — 트랙패드는 제스처당 수십 개의
+// 작은 이벤트를 쏘므로 개수 기반이면 감도가 폭주한다. 휠 한 노치(±120) ≈ 2유닛.
 let wheelAcc = 0;
 addEventListener("wheel", e => {
   if (e.target && e.target.tagName === "CANVAS") {
     e.preventDefault();
-    wheelAcc += e.deltaY > 0 ? -1 : e.deltaY < 0 ? 1 : 0;
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 128 : e.deltaY;
+    wheelAcc -= dy / 100; // 노치(±120) ≈ 1.2유닛 ≈ 카트 14px (index.astro 터치 환산 상수와 연동)
   }
 }, { passive: false });
 
