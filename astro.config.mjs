@@ -13,8 +13,7 @@ import cloudflare from "@astrojs/cloudflare";
 const isBuild = process.argv.includes("build");
 
 export default defineConfig({
-  // TODO: Workers 도메인 확정 후 실제 주소로 교체 (RSS/절대링크에 쓰임)
-  site: "https://za66re-blog.workers.dev",
+  site: "https://blog.zaffre001.workers.dev",
   // Keystatic 라우트는 직접 정의(src/pages/keystatic, src/pages/api/keystatic) —
   // @keystatic/astro 통합의 주입 라우트가 Astro 6 + CF에서 깨져서 쓰지 않는다.
   integrations: [react(), mdx()],
