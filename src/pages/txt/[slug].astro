@@ -18,4 +18,69 @@ const { Content } = await render(post);
   <div class="post-date">{fmtDate(post.data.date)}</div>
   <hr />
   <Content />
+
+  <section class="cmts">
+    <div class="cmts-head">▶ 댓글 <span id="cmts-n">…</span>건</div>
+    <div id="cmts-list">불러오는 중…</div>
+    <form id="cmts-form">
+      <div class="cmts-row">대화명│ <input name="nick" maxlength="12" placeholder="손님" autocomplete="nickname"></div>
+      <textarea name="body" maxlength="500" rows="4" required placeholder="댓글 입력…" spellcheck="false"></textarea>
+      <input name="website" tabindex="-1" autocomplete="off" class="cmts-hp" aria-hidden="true">
+      <div class="cmts-foot">
+        <button class="pbtn" type="submit">등록</button>
+        <span id="cmts-msg"></span>
+      </div>
+    </form>
+  </section>
+
+  <script is:inline define:vars={{ slug: post.id }}>
+    (() => {
+      const $ = (s) => document.querySelector(s);
+      const p2 = (n) => String(n).padStart(2, "0");
+      async function load() {
+        try {
+          const d = await (await fetch("/api/comments/" + slug)).json();
+          const list = $("#cmts-list");
+          list.innerHTML = "";
+          const cs = d.comments ?? [];
+          $("#cmts-n").textContent = cs.length;
+          if (!cs.length) { list.textContent = "아직 댓글이 없습니다"; return; }
+          for (const c of cs) {
+            const item = document.createElement("div");
+            item.className = "cmt";
+            const head = document.createElement("div");
+            head.className = "cmt-nick";
+            const dd = new Date(c.ts);
+            head.textContent = c.nick + " · " + p2(dd.getMonth() + 1) + "/" + p2(dd.getDate()) + " " + p2(dd.getHours()) + ":" + p2(dd.getMinutes());
+            const body = document.createElement("div");
+            body.className = "cmt-body";
+            body.textContent = c.body;
+            item.append(head, body);
+            list.append(item);
+          }
+        } catch (e) {
+          $("#cmts-list").textContent = "댓글을 불러오지 못했습니다";
+        }
+      }
+      $("#cmts-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        $("#cmts-msg").textContent = "";
+        try {
+          const r = await fetch("/api/comments/" + slug, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nick: f.nick.value, body: f.body.value, website: f.website.value }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || d.error) throw new Error(d.error || "등록 실패");
+          f.body.value = "";
+          load();
+        } catch (err) {
+          $("#cmts-msg").textContent = err.message;
+        }
+      });
+      load();
+    })();
+  </script>
 </Txt>

@@ -47,6 +47,25 @@ import site from "../../content/site.json";
   </section>
 </main>
 
+<!-- 댓글 쓰기 — PC통신 터미널 -->
+<div id="cmt-modal" hidden>
+  <div id="cmt-term" role="dialog" aria-modal="true" aria-label="댓글 쓰기">
+    <div id="cmt-title">《 댓 글 쓰 기 》<span id="cmt-cursor">▌</span></div>
+    <div id="cmt-sub">to. <span id="cmt-slug"></span></div>
+    <label class="cmt-row">대화명│ <input id="cmt-nick" maxlength="12" placeholder="손님" autocomplete="nickname"></label>
+    <div class="cmt-row">내 용│</div>
+    <textarea id="cmt-body" maxlength="500" rows="6" spellcheck="false"></textarea>
+    <input id="cmt-web" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div id="cmt-foot">
+      <span id="cmt-msg"></span>
+      <span>
+        <button id="cmt-cancel" type="button">취소<small> ESC</small></button>
+        <button id="cmt-send" type="button">등록<small> ⌃⏎</small></button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <footer>
   © 2026 {site.title} ·
   <a href="/rss.xml">RSS</a> ·
@@ -225,6 +244,47 @@ import site from "../../content/site.json";
   footer { margin-top: 26px; font-size: 11px; color: #4a5470; }
   footer a { color: #6f7a9e; }
   [hidden] { display: none !important; }
+
+  /* ── 댓글 쓰기 모달 (PC통신 터미널) ── */
+  #cmt-modal {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0, 0, 0, .72);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  #cmt-term {
+    width: min(440px, 94vw);
+    background: #0000a8; color: #e8e8e8;
+    border: 4px double #55ffff;
+    box-shadow: 0 0 0 3px #000060, 0 24px 60px rgba(0, 0, 0, .75);
+    font-size: 14px;
+    padding: 14px 16px 12px;
+  }
+  #cmt-title { text-align: center; color: #ffff55; font-weight: 700; letter-spacing: 2px; }
+  #cmt-cursor { color: #fff; animation: cblink 1s steps(1) infinite; }
+  @keyframes cblink { 50% { opacity: 0; } }
+  #cmt-sub { text-align: center; color: #55ffff; font-size: 12px; margin: 2px 0 12px; }
+  .cmt-row { display: block; color: #55ffff; margin: 8px 0 4px; font-size: 13px; }
+  #cmt-nick {
+    background: transparent; border: 0; border-bottom: 1px dashed #5555ff;
+    color: #fff; font: inherit; caret-color: #ffff55; outline: none; width: 11em;
+  }
+  #cmt-body {
+    width: 100%; background: rgba(0, 0, 0, .28);
+    border: 1px solid #5555ff; color: #fff;
+    font: inherit; line-height: 1.7; padding: 8px;
+    caret-color: #ffff55; outline: none; resize: vertical;
+  }
+  #cmt-web { position: absolute; left: -9999px; }
+  #cmt-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
+  #cmt-msg { color: #ff5555; font-size: 12px; min-height: 1em; }
+  #cmt-foot button {
+    font: inherit; font-size: 13px; color: #0000a8; background: #a8a8a8;
+    border: 0; padding: 4px 10px; cursor: pointer;
+    box-shadow: 2px 2px 0 #000;
+  }
+  #cmt-foot button:hover { background: #fff; }
+  #cmt-foot button small { color: #333; font-size: 10px; }
 </style>
 
 <script is:inline>
@@ -537,15 +597,63 @@ async function getIndex() {
   return idxCache;
 }
 
-// ── 전원 LED: 카트 상태(gpio[126])를 훔쳐본다 ──────
+// ── 전원 LED + UI 채널: 카트 상태(gpio[126])·요청(gpio[124])을 훔쳐본다 ──────
 setInterval(() => {
   const led = $("#led");
   if (!$("#tube").getAttribute("src")) { led.className = ""; warpOff(); return; }
-  let st = 0;
-  try { st = $("#tube").contentWindow.pico8_gpio?.[126] || 0; } catch (e) {}
+  let st = 0, ui = 0;
+  try {
+    const gp = $("#tube").contentWindow.pico8_gpio;
+    st = gp?.[126] || 0;
+    ui = gp?.[124] || 0;
+    if (ui === 1) gp[124] = 0; // 요청 소비
+  } catch (e) {}
   if (st > 0) tubeStarted = true; // 안전망 (어떤 경로로든 구동 감지)
+  if (ui === 1) openCmt(tubeSlug());
   led.className = st > 0 ? "on" : "wait";
 }, 500);
+
+// ── 댓글 쓰기 모달 (PC통신 터미널) ──────────────────
+let cmtSlug = null;
+function openCmt(slug) {
+  if (!slug) return;
+  cmtSlug = slug;
+  $("#cmt-slug").textContent = slug;
+  $("#cmt-msg").textContent = "";
+  $("#cmt-modal").hidden = false;
+  $("#cmt-body").focus();
+}
+function closeCmt() { $("#cmt-modal").hidden = true; }
+async function sendCmt() {
+  const body = $("#cmt-body").value.trim();
+  if (!body) { $("#cmt-msg").textContent = "내용을 입력하세요"; return; }
+  $("#cmt-send").disabled = true;
+  try {
+    const r = await fetch("/api/comments/" + cmtSlug, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nick: $("#cmt-nick").value, body, website: $("#cmt-web").value }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.error) throw new Error(d.error || "전송 실패");
+    $("#cmt-body").value = "";
+    closeCmt();
+    // 카트에 "댓글 갱신됨" 신호 — 스크롤 유지한 채 다시 그린다
+    try { $("#tube").contentWindow.pico8_gpio[124] = 2; } catch (e) {}
+  } catch (e) {
+    $("#cmt-msg").textContent = e.message;
+  } finally {
+    $("#cmt-send").disabled = false;
+  }
+}
+$("#cmt-cancel").addEventListener("click", closeCmt);
+$("#cmt-send").addEventListener("click", sendCmt);
+addEventListener("keydown", e => {
+  if ($("#cmt-modal").hidden) return;
+  if (e.key === "Escape") closeCmt();
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) sendCmt();
+});
+window.__openCmt = openCmt; // 디버그용
 
 // ── 조작 ───────────────────────────────────────────
 $("#btn-text").addEventListener("click", () => {

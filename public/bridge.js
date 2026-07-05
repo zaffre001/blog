@@ -31,8 +31,9 @@ const ROOT = new URL(".", SELF);                      // …/web/
 const CONTENT = new URL("../content", ROOT).href;
 const fontUrl = n => new URL("fonts/" + n, ROOT).href;
 
-// gpio[6..124]=페이로드, [125]=카트 입력비트(디버그), [126]=카트 상태, [127]=휠 델타
-const PAYLOAD = 119;
+// gpio[6..123]=페이로드, [124]=UI 채널(1=댓글창 열기 요청, 2=댓글 갱신됨),
+// [125]=카트 입력비트(디버그), [126]=카트 상태, [127]=휠 델타
+const PAYLOAD = 118;
 const BG = 1; // pico-8 색 1 (진남색) — 카트와 동일해야 함
 
 const FONTS = {
@@ -258,17 +259,24 @@ async function handlePost(arg) {
     }
   }));
   currentPost = { post, tokens, images };
-  log("POST 전송: " + post.title + " (이미지 " + images.length + ")");
+
+  // 댓글 (PC통신 감성 — 글 뒤에 같은 파이프라인으로 이어붙인다)
+  let cms = [];
+  try {
+    cms = (await (await fetch(new URL("api/comments/" + p.slug, ROOT))).json()).comments ?? [];
+  } catch (e) { log("댓글 로드 실패: " + e.message); }
+
+  log("POST 전송: " + post.title + " (이미지 " + images.length + ", 댓글 " + cms.length + ")");
   return packMsg(w => {
     w.gids(post.title, FONTS.title);
     w.gids(post.date, FONTS.body);
     w.u8(images.length);
     let cur = 7;
-    const emitText = (txt, col) => {
+    const emitRun = (txt, col) => {
       if (col !== cur) { w.u16(0x7ffc); w.u8(col); cur = col; }
       for (const ch of Array.from(txt)) w.u16(gidOf(ch, FONTS.body));
-      w.u16(0x7ffe);
     };
+    const emitText = (txt, col) => { emitRun(txt, col); w.u16(0x7ffe); };
     for (const t of tokens) {
       if (t.img !== undefined) {
         const im = images[t.img];
@@ -276,6 +284,21 @@ async function handlePost(arg) {
         else { w.u16(0x7ffd); w.u8(t.img); w.u16(im.h); }
       } else emitText(t.line, t.col);
     }
+    // ── 댓글 섹션 ──
+    const p2 = n => String(n).padStart(2, "0");
+    w.u16(0x7ffe);
+    emitText("─".repeat(15), 13);
+    emitText("▶ 댓글 " + cms.length + "건", 12);
+    if (!cms.length) emitText("아직 댓글이 없습니다", 5);
+    for (const c of cms.slice(-50)) {
+      const d = new Date(c.ts);
+      emitRun(String(c.nick), 11);
+      emitRun(" " + p2(d.getMonth() + 1) + "/" + p2(d.getDate()) + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()), 5);
+      w.u16(0x7ffe);
+      for (const ln of String(c.body).split("\n")) emitText("> " + ln, 7);
+      w.u16(0x7ffe);
+    }
+    emitText("[+]로 댓글 남기기", 5);
     w.u16(0x7fff);
   });
 }

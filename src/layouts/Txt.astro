@@ -108,6 +108,32 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
   .rd-back { display: inline-block; margin-bottom: 12px; color: #29adff; text-decoration: none; }
   .rd-back:hover { text-decoration: underline; }
 
+  /* ── 댓글 (PC통신 감성) ── */
+  .cmts {
+    margin-top: 22px;
+    background: #0000a8; color: #e8e8e8;
+    border: 4px double #55ffff;
+    padding: 14px 16px; font-size: 14px;
+  }
+  .cmts-head { color: #ffff55; font-weight: 700; margin-bottom: 8px; }
+  .cmt { border-top: 1px dashed #5555ff; padding: 8px 0 6px; }
+  .cmt-nick { color: #55ffff; font-size: 12px; margin-bottom: 2px; }
+  .cmt-body { white-space: pre-wrap; line-height: 1.8; }
+  .cmts-row { color: #55ffff; font-size: 13px; margin: 12px 0 4px; }
+  .cmts input[name="nick"] {
+    background: transparent; border: 0; border-bottom: 1px dashed #5555ff;
+    color: #fff; font: inherit; caret-color: #ffff55; outline: none; width: 10em;
+  }
+  .cmts textarea {
+    width: 100%; background: rgba(0, 0, 0, .28);
+    border: 1px solid #5555ff; color: #fff;
+    font: inherit; line-height: 1.7; padding: 8px;
+    caret-color: #ffff55; outline: none; resize: vertical;
+  }
+  .cmts-hp { position: absolute; left: -9999px; }
+  .cmts-foot { margin-top: 8px; display: flex; gap: 10px; align-items: center; }
+  #cmts-msg { color: #ff5555; font-size: 12px; }
+
   footer { margin-top: 26px; font-size: 11px; color: #4a5470; }
   footer a { color: #6f7a9e; }
 </style>

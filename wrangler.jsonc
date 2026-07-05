@@ -7,5 +7,8 @@
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2025-04-01",
   // Keystatic API 라우트(GitHub OAuth·커밋 프록시)가 workerd에서 돌기 위해 필요
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  // 댓글 저장소 — id 생략 시 배포에서 자동 프로비저닝 (실패하면 대시보드에서
+  // KV 네임스페이스 만들고 "id"를 채울 것). 없으면 API가 안내 메시지로 응답.
+  "kv_namespaces": [{ "binding": "COMMENTS" }]
 }

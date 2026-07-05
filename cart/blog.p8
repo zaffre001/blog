@@ -85,6 +85,15 @@ function dispatch()
  elseif kind=="post" then
   parse_post(r)
   postready=true
+  if refreshing then
+   refreshing=false
+   docv=pdoc
+   s=mid(keep_s or 0,0,max(0,docv.h-128))
+   stgt=s
+   win=mid(flr(s)-192,0,max(0,docv.h-512))
+   render_win(docv)
+   start_imgs()
+  end
  end
 end
 
@@ -363,7 +372,7 @@ function _init()
  -- gpio 채널 리셋: 부팅 전 브릿지가 남긴 값이 있어도 백지에서 시작.
  -- 그 뒤 몇 프레임 쉬어서 브릿지가 리셋을 관측할 시간을 준다.
  for i=0,5 do poke(g+i,0) end
- poke(g+127,0)
+ poke(g+124,0) poke(g+127,0)
  glyphs={} pend={} imgs={} imgy={} imgh={} imglist={}
  cooldown=5 qi=1 sel=1 s=0 stgt=0 win=0 mbp=0 boot_t=0
  state="boot"
@@ -403,6 +412,14 @@ function _update60()
  if btn(5) then ib|=32 end
  if wh~=0 then ib|=64 end
  poke(g+125,ib)
+
+ -- 페이지 신호: 댓글이 갱신됨 → 조용히 다시 받기
+ if peek(g+124)==2 then
+  poke(g+124,0)
+  if state=="post" and cur_e and not refreshing then
+   refresh_post()
+  end
+ end
 
  if state=="boot" then
   boot_t+=1
@@ -464,9 +481,19 @@ function upd_post()
  smooth_s()
  ensure_win(docv)
  backhov=mx<=11 and my<=9
- if btnp(5) or rclick or (click and backhov) then
+ cmthov=mx>=113 and mx<=125 and my>=116
+ if click and cmthov then
+  poke(g+124,1) -- 페이지에 댓글창 열기 요청
+ elseif btnp(5) or rclick or (click and backhov) then
   goback()
  end
+end
+
+-- 페이지가 댓글 등록을 마치면 [124]=2 — 스크롤 유지한 채 글만 다시 받는다
+function refresh_post()
+ keep_s=s
+ refreshing=true
+ qreq(2,cur_e.id,"post")
 end
 
 function upd_swap()
@@ -508,6 +535,7 @@ function _draw()
    end
   else
    draw_back()
+   draw_cmt()
   end
   draw_scroll()
   draw_cursor()
@@ -533,6 +561,11 @@ end
 function draw_back()
  rectfill(0,0,11,8,backhov and 7 or 6)
  print("<",3,2,0)
+end
+
+function draw_cmt()
+ rectfill(113,116,125,126,cmthov and 7 or 6)
+ print("+",117,119,0)
 end
 
 function draw_scroll()
